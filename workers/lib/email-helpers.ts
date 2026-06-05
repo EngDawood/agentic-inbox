@@ -58,13 +58,16 @@ export function validateSender(
 	const toStr = (Array.isArray(to) ? to.join(", ") : to).toLowerCase();
 	const fromEmail = (typeof from === "string" ? from : from.email).toLowerCase();
 
-	if (fromEmail !== mailboxId.toLowerCase()) {
-		throw new SenderValidationError("From address must match the mailbox email address");
-	}
-
+	const mailboxDomain = mailboxId.toLowerCase().split("@")[1];
 	const fromDomain = fromEmail.split("@")[1];
+
 	if (!fromDomain) {
 		throw new SenderValidationError("Invalid sender email address");
+	}
+
+	// Allow sending from any address on the same domain (catchall mailbox scenario)
+	if (fromDomain !== mailboxDomain) {
+		throw new SenderValidationError("From address must match the mailbox email address");
 	}
 
 	return { toStr, fromEmail, fromDomain };

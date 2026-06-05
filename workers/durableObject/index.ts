@@ -841,6 +841,20 @@ export class MailboxDO extends DurableObject<Env> {
 		const folderId = folderRow.id;
 		const isSent = folderId === Folders.SENT;
 
+		// Dedup: skip if an email with this Message-ID was already stored (e.g. CF retry delivery)
+		if (email.message_id) {
+			const existing = this.db
+				.select({ id: schema.emails.id })
+				.from(schema.emails)
+				.where(eq(schema.emails.message_id, email.message_id))
+				.limit(1)
+				.get();
+			if (existing) {
+				console.log(`Skipping duplicate inbound email with message_id ${email.message_id}`);
+				return;
+			}
+		}
+
 		// Sent emails are always read — the sender obviously knows what they wrote.
 		// This prevents sent replies from inflating thread_unread_count.
 		this.db

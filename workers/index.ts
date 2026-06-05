@@ -371,7 +371,7 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 
 	const messageId = crypto.randomUUID();
 	if (!(await env.BUCKET.head(`mailboxes/${mailboxId}.json`))) {
-		const catchall = (env as any).CATCHALL_MAILBOX?.toLowerCase();
+		const catchall = env.CATCHALL_MAILBOX?.toLowerCase();
 		if (catchall && await env.BUCKET.head(`mailboxes/${catchall}.json`)) {
 			mailboxId = catchall;
 		} else {
