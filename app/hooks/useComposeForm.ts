@@ -18,6 +18,15 @@ import { useDeleteEmail, useForwardEmail, useReplyToEmail, useSaveDraft, useSend
 import { useMailbox } from "~/queries/mailboxes";
 import { useUIStore } from "~/hooks/useUIStore";
 
+function getEffectiveFromEmail(original: { recipient: string }, mailboxEmail: string): string {
+	const domain = mailboxEmail.toLowerCase().split("@")[1];
+	if (!domain) return mailboxEmail;
+	const match = splitEmailList(original.recipient).find(
+		(r) => r.toLowerCase().split("@")[1] === domain,
+	);
+	return match?.toLowerCase() || mailboxEmail;
+}
+
 function appendUniqueAddress(
 	addresses: string[],
 	seen: Set<string>,
@@ -238,8 +247,12 @@ export function useComposeForm(mailboxId?: string, _folder?: string) {
 		const toRecipients = splitEmailList(to);
 		if (toRecipients.length === 0) { setError("Add at least one recipient."); return; }
 		const ccRecipients = splitEmailList(cc); const bccRecipients = splitEmailList(bcc);
+		const originalForReply = composeOptions.originalEmail;
+		const effectiveFromEmail = originalForReply
+			? getEffectiveFromEmail(originalForReply, currentMailbox.email)
+			: currentMailbox.email;
 		const fromName = currentMailbox.settings?.fromName || currentMailbox.name;
-		const from = fromName && fromName !== currentMailbox.email ? { email: currentMailbox.email, name: fromName } : currentMailbox.email;
+		const from = fromName && fromName !== effectiveFromEmail ? { email: effectiveFromEmail, name: fromName } : effectiveFromEmail;
 		const emailData = {
 			to: toEmailListValue(toRecipients),
 			cc: toEmailListValue(ccRecipients),

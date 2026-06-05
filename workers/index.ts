@@ -5,6 +5,12 @@
 import { type Context, Hono } from "hono";
 import { cors } from "hono/cors";
 import PostalMime from "postal-mime";
+
+function parseEmailAddresses(val: string | string[]): string[] {
+	if (Array.isArray(val)) return val;
+	if (!val) return [];
+	return JSON.parse(val) as string[];
+}
 import { z } from "zod";
 import { sendEmail } from "./email-sender";
 import { storeAttachments, type StoredAttachment } from "./lib/attachments";
@@ -102,7 +108,7 @@ app.get("/api/v1/mailboxes", async (c) => {
 app.post("/api/v1/mailboxes", async (c) => {
 	const { name, settings, email: rawEmail } = CreateMailboxBody.parse(await c.req.json());
 	const email = rawEmail.toLowerCase();
-	const allowedAddresses = (c.env.EMAIL_ADDRESSES ?? []) as string[];
+	const allowedAddresses = parseEmailAddresses(c.env.EMAIL_ADDRESSES as unknown as string | string[]);
 	if (allowedAddresses.length > 0 && !allowedAddresses.map((a) => a.toLowerCase()).includes(email)) {
 		return c.json({ error: "Mailbox creation is restricted to configured EMAIL_ADDRESSES" }, 403);
 	}
@@ -202,7 +208,7 @@ app.post("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 	}, attachmentData);
 
 	c.executionCtx.waitUntil(
-		sendEmail(c.env.EMAIL, {
+		sendEmail(c.env, {
 			to, cc, bcc, from, subject, html, text,
 			attachments: attachments?.map((att) => ({ content: att.content, filename: att.filename, type: att.type, disposition: att.disposition || "attachment", contentId: att.contentId })),
 			...(in_reply_to ? { headers: buildThreadingHeaders(in_reply_to, references || []) } : {}),
@@ -351,7 +357,7 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 
 	if (!parsedEmail.to?.length || !parsedEmail.to[0].address) throw new Error("received email with empty to");
 
-	const allowedAddresses = ((env.EMAIL_ADDRESSES ?? []) as string[]).map((a) => a.toLowerCase());
+	const allowedAddresses = parseEmailAddresses(env.EMAIL_ADDRESSES as unknown as string | string[]).map((a) => a.toLowerCase());
 	const allRecipients = parsedEmail.to.map((t) => t.address?.toLowerCase()).filter(Boolean) as string[];
 	const ccRecipients = (parsedEmail.cc || []).map((e) => e.address?.toLowerCase()).filter(Boolean) as string[];
 	const bccRecipients = (parsedEmail.bcc || []).map((e) => e.address?.toLowerCase()).filter(Boolean) as string[];
@@ -364,9 +370,17 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 	if (!mailboxId) throw new Error("received email with no valid recipient address");
 
 	const messageId = crypto.randomUUID();
-	if (!(await env.BUCKET.head(`mailboxes/${mailboxId}.json`))) { console.log(`Ignoring email for ${mailboxId}: mailbox does not exist`); return; }
+	if (!(await env.BUCKET.head(`mailboxes/${mailboxId}.json`))) {
+		const catchall = (env as any).CATCHALL_MAILBOX?.toLowerCase();
+		if (catchall && await env.BUCKET.head(`mailboxes/${catchall}.json`)) {
+			mailboxId = catchall;
+		} else {
+			console.log(`Ignoring email for ${mailboxId}: mailbox does not exist and no catchall configured`);
+			return;
+		}
+	}
 
-	const stub = env.MAILBOX.get(env.MAILBOX.idFromName(mailboxId));
+	const stub = env.MAILBOX.get(env.MAILBOX.idFromName(mailboxId!));
 
 	const attachmentData: StoredAttachment[] = [];
 	if (parsedEmail.attachments) {
@@ -402,7 +416,7 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 		thread_id: threadId, message_id: originalMessageId, raw_headers: JSON.stringify(parsedEmail.headers),
 	}, attachmentData);
 
-	const agentStub = env.EMAIL_AGENT.get(env.EMAIL_AGENT.idFromName(mailboxId));
+	const agentStub = env.EMAIL_AGENT.get(env.EMAIL_AGENT.idFromName(mailboxId!));
 	ctx.waitUntil(agentStub.fetch(new Request("https://agents/onNewEmail", {
 		method: "POST", headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ mailboxId, emailId: messageId, sender: (parsedEmail.from?.address || "").toLowerCase(), subject: parsedEmail.subject || "", threadId }),
