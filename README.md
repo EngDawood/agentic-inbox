@@ -4,6 +4,8 @@
 </div>
 
 > **Fork notice:** This is a personal fork of [cloudflare/agentic-inbox](https://github.com/cloudflare/agentic-inbox) customized to work on the **Cloudflare free tier**. The main difference is outbound email uses the [Resend API](https://resend.com) instead of Cloudflare's `send_email` binding (which requires a paid plan), and a catchall mailbox is configured to receive all incoming mail for a domain.
+>
+> **On a paid Cloudflare plan?** Use the [upstream repository](https://github.com/cloudflare/agentic-inbox) instead — it supports native Cloudflare outbound email and per-address mailboxes out of the box.
 
 Agentic Inbox lets you send, receive, and manage emails through a modern web interface — all powered by your own Cloudflare account. Incoming emails arrive via [Cloudflare Email Routing](https://developers.cloudflare.com/email-routing/), each mailbox is isolated in its own [Durable Object](https://developers.cloudflare.com/durable-objects/) with a SQLite database, and attachments are stored in [R2](https://developers.cloudflare.com/r2/).
 
@@ -17,7 +19,6 @@ An **AI-powered Email Agent** can read your inbox, search conversations, and dra
 |---------|----------|-----------|
 | Outbound email | Cloudflare `send_email` binding (paid) | [Resend API](https://resend.com) (free tier available) |
 | Inbound routing | Per-address mailboxes | Catchall mailbox catches all `*@yourdomain.com` |
-| Package manager | npm | pnpm |
 
 ## How to set up
 
