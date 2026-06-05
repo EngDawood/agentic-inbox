@@ -67,21 +67,31 @@ wrangler secret put POLICY_AUD           # from Cloudflare Access modal
 wrangler secret put TEAM_DOMAIN          # from Cloudflare Access modal
 ```
 
-### 5. Set up Email Routing
+### 5. Configure EMAIL_ADDRESSES binding
+
+In the Cloudflare dashboard, go to your Worker > **Settings > Variables and Secrets** and add a binding:
+
+- **Type:** JSON
+- **Variable name:** `EMAIL_ADDRESSES`
+- **Value:** `[]`
+
+This binding stores the list of mailboxes. It must exist before first deploy or mailbox creation will return a 500 error.
+
+### 6. Set up Email Routing
 
 In the Cloudflare dashboard, go to your domain > **Email Routing** and create a catch-all rule that forwards to this Worker.
 
-### 6. Deploy
+### 7. Deploy
 
 ```bash
 pnpm run deploy
 ```
 
-### 7. Configure Cloudflare Access
+### 8. Configure Cloudflare Access
 
 Enable [one-click Cloudflare Access](https://developers.cloudflare.com/changelog/post/2025-10-03-one-click-access-for-workers/) on your Worker under **Settings > Domains & Routes**. The modal will show your `POLICY_AUD` and `TEAM_DOMAIN` values — set these as Worker secrets (step 4 above).
 
-### 8. Create a mailbox
+### 9. Create a mailbox
 
 Visit your deployed app and create a mailbox. At minimum, create the address you set as `CATCHALL_MAILBOX` (e.g. `inbox@yourdomain.com`).
 
@@ -99,7 +109,11 @@ Cloudflare Access JWT validation is skipped in local development — no `POLICY_
 
 **`Cloudflare Access must be configured in production`** — Enable Access using [one-click Cloudflare Access for Workers](https://developers.cloudflare.com/changelog/post/2025-10-03-one-click-access-for-workers/).
 
-**500 on mailbox creation** — Check that `EMAIL_ADDRESSES` is configured as a **JSON-type** binding in the Cloudflare dashboard with value `[]`.
+**500 on mailbox creation** — Check that `EMAIL_ADDRESSES` is configured as a **JSON-type** binding in the Cloudflare dashboard with value `[]` (see setup step 5).
+
+## Known limitations
+
+- **AI agent reply-from address** — When the AI agent drafts or sends a reply, it always sends from the catchall mailbox address (e.g. `inbox@yourdomain.com`), not from the original recipient address (e.g. `support@yourdomain.com`). Manual replies use the correct address automatically. This is a known gap with no current workaround.
 
 ## Features
 
