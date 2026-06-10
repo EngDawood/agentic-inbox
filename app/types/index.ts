@@ -14,6 +14,8 @@ export interface MailboxSettings {
 	signature?: SignatureSettings;
 	autoReply?: { enabled: boolean; subject: string; message: string };
 	agentSystemPrompt?: string;
+	autoDraft?: boolean;
+	agentModel?: string;
 }
 
 export interface Mailbox {
