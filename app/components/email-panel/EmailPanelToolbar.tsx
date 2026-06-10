@@ -15,6 +15,7 @@ import {
 	FolderSimpleIcon,
 	PaperPlaneTiltIcon,
 	PencilSimpleIcon,
+	RobotIcon,
 	StarIcon,
 	TrashIcon,
 	XIcon,
@@ -39,6 +40,8 @@ interface EmailPanelToolbarProps {
 	onMove: (folderId: string) => void;
 	onViewSource: () => void;
 	onDelete: () => void;
+	onDraftWithAI?: () => void;
+	isDraftingAI?: boolean;
 }
 
 export default function EmailPanelToolbar({
@@ -58,6 +61,8 @@ export default function EmailPanelToolbar({
 	onMove,
 	onViewSource,
 	onDelete,
+	onDraftWithAI,
+	isDraftingAI = false,
 }: EmailPanelToolbarProps) {
 	return (
 		<div className="flex items-center gap-1 px-3 py-2 border-b border-kumo-line shrink-0 md:px-4">
@@ -93,6 +98,19 @@ export default function EmailPanelToolbar({
 				</>
 			) : (
 				<>
+					{onDraftWithAI && (
+						<Tooltip content="Draft with AI" side="bottom" asChild>
+							<Button
+								variant="ghost"
+								shape="square"
+								size="sm"
+								icon={<RobotIcon size={18} />}
+								onClick={onDraftWithAI}
+								loading={isDraftingAI}
+								aria-label="Draft with AI"
+							/>
+						</Tooltip>
+					)}
 					<Tooltip content="Reply" side="bottom" asChild>
 						<Button
 							variant="ghost"

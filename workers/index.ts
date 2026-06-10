@@ -277,6 +277,35 @@ app.post("/api/v1/mailboxes/:mailboxId/threads/:threadId/read", async (c: AppCon
 app.post("/api/v1/mailboxes/:mailboxId/emails/:id/reply", handleReplyEmail);
 app.post("/api/v1/mailboxes/:mailboxId/emails/:id/forward", handleForwardEmail);
 
+app.post("/api/v1/mailboxes/:mailboxId/emails/:id/auto-draft", async (c: AppContext) => {
+	const mailboxId = c.req.param("mailboxId")!;
+	const emailId = c.req.param("id")!;
+	const stub = c.var.mailboxStub;
+	const email = await stub.getEmail(emailId) as any;
+	if (!email) return c.json({ error: "Email not found" }, 404);
+
+	const agentStub = c.env.EMAIL_AGENT.get(c.env.EMAIL_AGENT.idFromName(mailboxId));
+	const res = await agentStub.fetch(new Request("https://agents/onNewEmail", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			mailboxId,
+			emailId,
+			sender: email.sender,
+			subject: email.subject,
+			threadId: email.thread_id || email.id,
+			force: true,
+		}),
+	}));
+
+	const resJson = await res.json() as any;
+	if (!res.ok) {
+		return c.json({ error: resJson.error || "Failed to generate AI draft" }, res.status as any);
+	}
+	return c.json(resJson);
+});
+
+
 // -- Folders --------------------------------------------------------
 
 app.get("/api/v1/mailboxes/:mailboxId/folders", async (c: AppContext) => c.json(await c.var.mailboxStub.getFolders()));

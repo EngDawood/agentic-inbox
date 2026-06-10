@@ -277,3 +277,15 @@ export function useForwardEmail() {
 		onSuccess: (_data, { mailboxId }) => invalidate(mailboxId),
 	});
 }
+
+export function useAutoDraftEmail() {
+	const invalidate = useInvalidateEmailData();
+	return useMutation({
+		mutationFn: ({
+			mailboxId,
+			emailId,
+		}: { mailboxId: string; emailId: string }) =>
+			api.autoDraftEmail(mailboxId, emailId),
+		onSuccess: (_data, { mailboxId }) => invalidate(mailboxId),
+	});
+}

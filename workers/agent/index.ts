@@ -280,8 +280,22 @@ export class EmailAgent extends AIChatAgent<any> {
 		const tools = createEmailTools(env, mailboxId);
 		const systemPrompt = await getSystemPrompt(env, mailboxId);
 
+		let agentModel = "@cf/moonshotai/kimi-k2.5";
+		try {
+			const key = `mailboxes/${mailboxId}.json`;
+			const obj = await env.BUCKET.get(key);
+			if (obj) {
+				const settings = await obj.json<Record<string, unknown>>();
+				if (typeof settings.agentModel === "string" && settings.agentModel.trim()) {
+					agentModel = settings.agentModel.trim();
+				}
+			}
+		} catch {
+			// Ignore
+		}
+
 		const result = streamText({
-			model: workersai("@cf/moonshotai/kimi-k2.5"),
+			model: workersai(agentModel as any),
 			system: systemPrompt,
 			messages: await convertToModelMessages(this.messages),
 			tools,
@@ -306,6 +320,7 @@ export class EmailAgent extends AIChatAgent<any> {
 					sender: string;
 					subject: string;
 					threadId: string;
+					force?: boolean;
 				};
 				const result = await this.handleNewEmail(emailData);
 				return new Response(JSON.stringify(result), {
@@ -332,8 +347,34 @@ export class EmailAgent extends AIChatAgent<any> {
 		sender: string;
 		subject: string;
 		threadId: string;
+		force?: boolean;
 	}) {
 		const env = this.env as Env;
+
+		// Fetch mailbox settings
+		let autoDraft = true;
+		let agentModel = "@cf/moonshotai/kimi-k2.5";
+		try {
+			const key = `mailboxes/${emailData.mailboxId}.json`;
+			const obj = await env.BUCKET.get(key);
+			if (obj) {
+				const settings = await obj.json<Record<string, unknown>>();
+				if (settings.autoDraft === false) {
+					autoDraft = false;
+				}
+				if (typeof settings.agentModel === "string" && settings.agentModel.trim()) {
+					agentModel = settings.agentModel.trim();
+				}
+			}
+		} catch {
+			// Ignore settings read errors
+		}
+
+		if (!autoDraft && !emailData.force) {
+			console.log(`Auto-draft is disabled for mailbox: ${emailData.mailboxId}`);
+			return { status: "skipped", reason: "auto_draft_disabled" };
+		}
+
 		const workersai = createWorkersAI({ binding: env.AI });
 		const tools = createEmailTools(env, emailData.mailboxId);
 		const systemPrompt = await getSystemPrompt(env, emailData.mailboxId);
@@ -463,7 +504,7 @@ Based on the email content and thread context above, draft a reply using draft_r
 
 		try {
 			const result = await generateText({
-				model: workersai("@cf/moonshotai/kimi-k2.5"),
+				model: workersai(agentModel as any),
 				system: systemPrompt,
 				messages: await convertToModelMessages(messages),
 				tools,

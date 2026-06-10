@@ -20,12 +20,16 @@ export default function SettingsRoute() {
 
 	const [displayName, setDisplayName] = useState("");
 	const [agentPrompt, setAgentPrompt] = useState("");
+	const [autoDraft, setAutoDraft] = useState(true);
+	const [agentModel, setAgentModel] = useState("@cf/moonshotai/kimi-k2.5");
 	const [isSaving, setIsSaving] = useState(false);
 
 	useEffect(() => {
 		if (mailbox) {
 			setDisplayName(mailbox.settings?.fromName || mailbox.name || "");
 			setAgentPrompt(mailbox.settings?.agentSystemPrompt || "");
+			setAutoDraft(mailbox.settings?.autoDraft !== false);
+			setAgentModel(mailbox.settings?.agentModel || "@cf/moonshotai/kimi-k2.5");
 		}
 	}, [mailbox]);
 
@@ -36,6 +40,8 @@ export default function SettingsRoute() {
 			...mailbox.settings,
 			fromName: displayName,
 			agentSystemPrompt: agentPrompt.trim() || undefined,
+			autoDraft,
+			agentModel,
 		};
 		try {
 			await updateMailboxMutation.mutateAsync({ mailboxId, settings });
@@ -81,6 +87,38 @@ export default function SettingsRoute() {
 							onChange={(e) => setDisplayName(e.target.value)}
 						/>
 						<Input label="Email" type="email" value={mailbox.email} disabled />
+					</div>
+				</div>
+
+				{/* AI Agent Settings */}
+				<div className="rounded-lg border border-kumo-line bg-kumo-base p-5 space-y-4">
+					<div className="text-sm font-medium text-kumo-default">
+						AI Agent Settings
+					</div>
+					<div className="flex items-center justify-between py-1">
+						<div>
+							<div className="text-xs font-semibold text-kumo-default">Auto-Draft Replies</div>
+							<div className="text-[11px] text-kumo-subtle">Automatically draft AI replies when new emails arrive</div>
+						</div>
+						<input
+							type="checkbox"
+							checked={autoDraft}
+							onChange={(e) => setAutoDraft(e.target.checked)}
+							className="w-4 h-4 rounded border-kumo-line text-kumo-brand bg-kumo-recessed focus:ring-kumo-ring cursor-pointer"
+						/>
+					</div>
+					<div className="space-y-1.5 pt-1">
+						<span className="text-xs font-semibold text-kumo-default block">AI LLM Model</span>
+						<select
+							value={agentModel}
+							onChange={(e) => setAgentModel(e.target.value)}
+							className="w-full rounded-lg border border-kumo-line bg-kumo-recessed px-3 py-2 text-xs text-kumo-default focus:outline-none focus:ring-1 focus:ring-kumo-ring cursor-pointer leading-tight"
+						>
+							<option value="@cf/moonshotai/kimi-k2.5">Moonshot Kimi K2.5 (Default)</option>
+							<option value="@cf/meta/llama-3-8b-instruct">Meta Llama 3 8B</option>
+							<option value="@cf/qwen/qwen1.5-14b-chat">Qwen 1.5 14B</option>
+							<option value="@cf/google/gemma-7b-it">Google Gemma 7B</option>
+						</select>
 					</div>
 				</div>
 
