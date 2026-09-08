@@ -38,6 +38,14 @@
 	"ai": {
 		"binding": "AI"
 	},
+	// Cloudflare Email Service. Primary outbound path; the Worker falls back to
+	// Resend if a send fails. Sending to arbitrary recipients needs Workers Paid,
+	// and the sending domain must be verified in Email Service.
+	"send_email": [
+		{
+			"name": "EMAIL"
+		}
+	],
 	"durable_objects": {
 		"bindings": [
 			{

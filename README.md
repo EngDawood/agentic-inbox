@@ -17,16 +17,16 @@ An **AI-powered Email Agent** can read your inbox, search conversations, and dra
 
 | Feature | Upstream | This fork |
 |---------|----------|-----------|
-| Outbound email | Cloudflare `send_email` binding (paid) | [Resend API](https://resend.com) (free tier available) |
+| Outbound email | Cloudflare `send_email` binding | Cloudflare Email Service, with [Resend](https://resend.com) as automatic fallback |
 | Inbound routing | Per-address mailboxes | Catchall mailbox catches all `*@yourdomain.com` |
 
 ## How to set up
 
 ### Prerequisites
 
-- Cloudflare account (free tier works)
-- A domain added to Cloudflare with [Email Routing](https://developers.cloudflare.com/email-routing/) enabled
-- A [Resend](https://resend.com) account with an API key and your domain verified
+- Cloudflare account. Workers Paid is required to send to arbitrary recipients; on the free plan [Email Service](https://developers.cloudflare.com/email-service/) can only send to verified destination addresses, so use Resend alone there
+- A domain added to Cloudflare with [Email Routing](https://developers.cloudflare.com/email-routing/) enabled, and verified in Email Service for sending
+- Optional but recommended: a [Resend](https://resend.com) account with an API key and your domain verified, used as the outbound fallback
 - [Workers AI](https://developers.cloudflare.com/workers-ai/) enabled (for the AI agent)
 - [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) configured for production (required to protect your inbox)
 
@@ -62,10 +62,16 @@ wrangler r2 bucket create agentic-inbox
 ### 4. Set secrets
 
 ```bash
-wrangler secret put RESEND_API_KEY       # your Resend API key
+wrangler secret put RESEND_API_KEY       # optional — outbound fallback
 wrangler secret put POLICY_AUD           # from Cloudflare Access modal
 wrangler secret put TEAM_DOMAIN          # from Cloudflare Access modal
 ```
+
+Outbound email goes through the Cloudflare Email Service `send_email` binding
+(declared as `EMAIL` in `wrangler.jsonc`). If a send fails and `RESEND_API_KEY`
+is set, the Worker retries it through Resend and logs the fallback. Email
+Service is in public beta, so keeping the fallback configured is recommended.
+With no binding and no key, sending fails with an explicit error.
 
 ### 5. Configure EMAIL_ADDRESSES binding
 
@@ -191,7 +197,7 @@ Cloudflare Access JWT validation is skipped in local development — no `POLICY_
 
 - **Frontend:** React 19, React Router v7, Tailwind CSS, Zustand, TipTap, `@cloudflare/kumo`
 - **Backend:** Hono, Cloudflare Workers, Durable Objects (SQLite), R2, Email Routing
-- **Outbound email:** [Resend API](https://resend.com)
+- **Outbound email:** Cloudflare Email Service (`send_email` binding), falling back to the [Resend API](https://resend.com)
 - **AI Agent:** Cloudflare Agents SDK (`AIChatAgent`), AI SDK v6, Workers AI (`@cf/moonshotai/kimi-k2.5`), `react-markdown` + `remark-gfm`
 - **Auth:** Cloudflare Access JWT validation (required in production)
 

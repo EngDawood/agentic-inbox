@@ -2,6 +2,7 @@
 POLICY_AUD=your-access-policy-audience-tag
 TEAM_DOMAIN=https://your-team.cloudflareaccess.com
 DOMAINS= your-domain
+# Optional outbound fallback. Primary path is the EMAIL send_email binding.
 RESEND_API_KEY=your-RESEND_API_KEY
 EMAIL_ADDRESSES=[]
 

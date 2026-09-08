@@ -6,9 +6,11 @@ export interface Env extends Cloudflare.Env {
 	POLICY_AUD: string;
 	TEAM_DOMAIN: string;
 
-	// Set via `wrangler secret put`, so `wrangler types` cannot infer it from
-	// wrangler.jsonc and it must be declared here for sendEmail() to typecheck.
-	RESEND_API_KEY: string;
+	// Resend fallback for outbound mail, used when a Cloudflare Email Service
+	// send fails. Optional: drop it to run on the EMAIL binding alone. Set via
+	// `wrangler secret put`, so `wrangler types` cannot infer it and it must be
+	// declared here for sendEmail() to typecheck.
+	RESEND_API_KEY?: string;
 
 	// Telegram bot integration. All optional — when the token or chat ID is
 	// missing the integration disables itself and mail flow is unaffected.
