@@ -18,3 +18,5 @@ skills-lock.json
 .DS_Store
 worker-configuration.d.ts
 docs/*
+# skills installed via `npx skills add` (payload lives in gitignored .agents/)
+.claude/skills/archify
