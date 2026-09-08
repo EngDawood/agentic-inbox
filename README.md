@@ -95,6 +95,68 @@ Enable [one-click Cloudflare Access](https://developers.cloudflare.com/changelog
 
 Visit your deployed app and create a mailbox. At minimum, create the address you set as `CATCHALL_MAILBOX` (e.g. `inbox@yourdomain.com`).
 
+## Telegram bot (optional)
+
+New mail can be pushed to a Telegram chat, where you can triage it with inline
+buttons or reply to it — a Telegram reply is delivered as a real, correctly
+threaded email and stored in Sent.
+
+Skip this section entirely to run without it: with no bot token configured the
+integration disables itself and mail flow is unchanged.
+
+### 1. Create the bot
+
+Message [@BotFather](https://t.me/BotFather), send `/newbot`, and keep the token.
+
+### 2. Set the secrets
+
+```bash
+wrangler secret put TELEGRAM_BOT_TOKEN       # from @BotFather
+wrangler secret put TELEGRAM_WEBHOOK_SECRET  # openssl rand -hex 32
+wrangler secret put TELEGRAM_CHAT_ID         # see below
+```
+
+`TELEGRAM_CHAT_ID` accepts a comma-separated list. The first chat receives
+notifications; every listed chat is allowed to drive the bot. To find a chat's
+ID, deploy with the token set, then send `/id` to the bot.
+
+### 3. Let Telegram through Cloudflare Access
+
+Telegram cannot present an Access JWT, so add a **Bypass** policy for the path
+`/telegram/webhook` on the Access application protecting this Worker. Without
+it, Access blocks the webhook at the edge and the Worker never sees it.
+
+The endpoint is not left open by this. It authenticates every delivery with the
+`X-Telegram-Bot-Api-Secret-Token` header (compared in constant time) and an
+allowlist of chat IDs, and refuses all requests when `TELEGRAM_WEBHOOK_SECRET`
+is unset.
+
+### 4. Register the webhook
+
+```bash
+curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-worker-domain/telegram/webhook",
+    "secret_token": "<TELEGRAM_WEBHOOK_SECRET>",
+    "allowed_updates": ["message", "callback_query"]
+  }'
+```
+
+### What you get
+
+Each notification carries the sender, recipient, subject, attachment count, and
+a body snippet, plus four buttons: **Mark read**, **Star**, **Full body**, and
+**Archive**. Reply to a notification in Telegram and the text is sent as an
+email reply — threaded via `In-Reply-To`/`References`, quoting the original, and
+sent from the address the mail was addressed to rather than the catchall.
+Outbound replies pass the same per-mailbox rate limit as the web UI (20/hour,
+100/day).
+
+Commands: `/id` shows the chat ID, `/help` shows usage.
+
+Per-mailbox opt-out: set `"telegramNotify": false` in the mailbox settings JSON.
+
 ## Local development
 
 ```bash
@@ -123,6 +185,7 @@ Cloudflare Access JWT validation is skipped in local development — no `POLICY_
 - **Built-in AI agent** — Side panel with email tools for reading, searching, drafting, and sending
 - **Auto-draft on new email** — Agent automatically reads inbound emails and generates draft replies, always requiring explicit confirmation before sending
 - **Configurable** — Custom system prompts per mailbox, persistent chat history, streaming markdown responses
+- **Telegram bot** — Optional push notifications for new mail with inline triage buttons, and reply-by-Telegram that sends a properly threaded email
 
 ## Stack
 

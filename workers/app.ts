@@ -7,6 +7,7 @@ import { Hono } from "hono";
 import { jwtVerify, createRemoteJWKSet } from "jose";
 import { createRequestHandler } from "react-router";
 import { app as apiApp, receiveEmail } from "./index";
+import { handleTelegramWebhook } from "./routes/telegram";
 import { EmailMCP } from "./mcp";
 import type { Env } from "./types";
 
@@ -41,6 +42,19 @@ function getAccessUrls(teamDomain: string) {
 
 // Main app that wraps the API and adds React Router fallback
 const app = new Hono<{ Bindings: Env }>();
+
+// Telegram webhook — registered before the Access middleware below.
+//
+// Hono composes handlers in registration order and stops at the first one
+// that returns a Response, so this route never reaches the Access check.
+// That is required: Telegram cannot present an Access JWT. The handler
+// authenticates every delivery itself with a shared secret header plus a
+// chat-ID allowlist, and refuses to run at all if the secret is unset.
+//
+// Cloudflare Access also sits in front of this hostname at the edge, so the
+// Access application needs a bypass policy for this path or Telegram's POST
+// is blocked before the Worker ever sees it. See README.
+app.post("/telegram/webhook", handleTelegramWebhook);
 
 // Cloudflare Access JWT validation middleware (production only)
 app.use("*", async (c, next) => {

@@ -23,6 +23,7 @@ import {
 } from "./lib/email-helpers";
 import { SendEmailRequestSchema } from "./lib/schemas";
 import { handleReplyEmail, handleForwardEmail } from "./routes/reply-forward";
+import { notifyNewEmail } from "./routes/telegram";
 import { Folders } from "../shared/folders";
 import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
@@ -450,6 +451,21 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 		method: "POST", headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ mailboxId, emailId: messageId, sender: (parsedEmail.from?.address || "").toLowerCase(), subject: parsedEmail.subject || "", threadId }),
 	})).catch((e) => console.error("Auto-draft trigger failed:", (e as Error).message)));
+
+	// Second consumer of the same event. Runs alongside the agent rather than
+	// after it, so a slow or failing Telegram call never delays auto-drafting.
+	// notifyNewEmail swallows its own errors — mail is already persisted here
+	// and a notification failure must not bubble into a delivery retry.
+	ctx.waitUntil(notifyNewEmail(env, {
+		mailboxId: mailboxId!,
+		emailId: messageId,
+		sender: (parsedEmail.from?.address || "").toLowerCase(),
+		recipient: allRecipients.join(", "),
+		subject: parsedEmail.subject || "",
+		threadId,
+		body: parsedEmail.html || parsedEmail.text || "",
+		attachmentCount: attachmentData.length,
+	}));
 }
 
 export { app, receiveEmail };

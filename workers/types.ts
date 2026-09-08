@@ -5,4 +5,17 @@
 export interface Env extends Cloudflare.Env {
 	POLICY_AUD: string;
 	TEAM_DOMAIN: string;
+
+	// Set via `wrangler secret put`, so `wrangler types` cannot infer it from
+	// wrangler.jsonc and it must be declared here for sendEmail() to typecheck.
+	RESEND_API_KEY: string;
+
+	// Telegram bot integration. All optional — when the token or chat ID is
+	// missing the integration disables itself and mail flow is unaffected.
+	/** Bot token from @BotFather. Secret. */
+	TELEGRAM_BOT_TOKEN?: string;
+	/** Comma-separated chat IDs. The first receives notifications; all may act. */
+	TELEGRAM_CHAT_ID?: string;
+	/** Shared secret echoed by Telegram on every webhook delivery. Secret. */
+	TELEGRAM_WEBHOOK_SECRET?: string;
 }
