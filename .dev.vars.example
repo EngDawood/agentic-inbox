@@ -2,5 +2,18 @@
 POLICY_AUD=your-access-policy-audience-tag
 TEAM_DOMAIN=https://your-team.cloudflareaccess.com
 DOMAINS= your-domain
+# Optional outbound fallback. Primary path is the EMAIL send_email binding.
 RESEND_API_KEY=your-RESEND_API_KEY
 EMAIL_ADDRESSES=[]
+
+# Telegram bot (optional). Without TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID the
+# integration disables itself and mail flow is unaffected.
+# TELEGRAM_BOT_TOKEN — from @BotFather
+# TELEGRAM_CHAT_ID   — comma-separated; the first chat receives notifications,
+#                      all listed chats may drive the bot. Send /id to the bot
+#                      to discover a chat's ID.
+# TELEGRAM_WEBHOOK_SECRET — required for inbound (buttons + replies). Generate
+#                      with: openssl rand -hex 32
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+TELEGRAM_WEBHOOK_SECRET=

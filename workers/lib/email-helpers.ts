@@ -80,6 +80,27 @@ export class SenderValidationError extends Error {
 	}
 }
 
+/**
+ * Pick the address a reply should be sent from.
+ *
+ * With a catchall mailbox every address on the domain lands in one box, so
+ * replying as the mailbox itself would answer `support@` mail from `inbox@`.
+ * Prefer whichever original recipient shares the mailbox domain.
+ */
+export function getEffectiveFromEmail(
+	originalRecipient: string,
+	mailboxId: string,
+): string {
+	const domain = mailboxId.toLowerCase().split("@")[1];
+	if (!domain) return mailboxId;
+	const match = originalRecipient
+		.split(",")
+		.map((r) => r.trim().toLowerCase())
+		.filter(Boolean)
+		.find((r) => r.split("@")[1] === domain);
+	return match || mailboxId;
+}
+
 // ── Message ID ─────────────────────────────────────────────────────
 
 /**
