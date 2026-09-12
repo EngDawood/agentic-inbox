@@ -153,7 +153,11 @@ curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
 
 Each notification carries the sender, recipient, subject, attachment count, and
 a body snippet, plus four buttons: **Mark read**, **Star**, **Full body**, and
-**Archive**. Reply to a notification in Telegram and the text is sent as an
+**Archive**. The snippet and the full body are translated into Telegram's own
+markup rather than flattened to plain text, so links stay tappable and bold,
+italics and lists survive; `javascript:` and `data:` links are stripped of their
+anchor, and hidden preheader text, styles and Outlook fallback blocks are
+dropped. Reply to a notification in Telegram and the text is sent as an
 email reply — threaded via `In-Reply-To`/`References`, quoting the original, and
 sent from the address the mail was addressed to rather than the catchall.
 Outbound replies pass the same per-mailbox rate limit as the web UI (20/hour,
