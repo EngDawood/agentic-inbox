@@ -11,6 +11,11 @@
  */
 
 import type { Env } from "../types";
+import {
+	escapeTelegramHtml,
+	emailHtmlToTelegramHtml,
+	fitTelegramHtml,
+} from "./telegram-html";
 
 // ── Config ─────────────────────────────────────────────────────────
 
@@ -131,14 +136,8 @@ export async function answerCallbackQuery(
 /** Telegram rejects messages over 4096 characters. */
 const TELEGRAM_MAX_MESSAGE = 4096;
 
-/**
- * Escape the three characters Telegram's HTML parse mode treats as markup.
- * Telegram only recognises a small tag whitelist, so this is the whole job.
- */
-export function escapeTelegramHtml(text: string): string {
-	if (!text) return "";
-	return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
+// Re-exported so callers have one Telegram import to reach for.
+export { escapeTelegramHtml, emailHtmlToTelegramHtml, fitTelegramHtml };
 
 /**
  * Trim plain text to a length.
@@ -155,45 +154,22 @@ export function truncateText(text: string, limit: number): string {
 /** Telegram's hard per-message ceiling, for callers assembling their own text. */
 export const TELEGRAM_MESSAGE_LIMIT = TELEGRAM_MAX_MESSAGE;
 
-/**
- * Escape `plain` so the result fits within `budget` characters.
- *
- * Escaping expands: a string of `&` grows fivefold. Estimating the pre-escape
- * length therefore either overshoots the limit or wastes most of the budget on
- * ordinary text, so shrink and re-measure until the escaped form actually fits.
- * Returns escaped, Telegram-safe HTML that never ends mid-entity.
- */
-export function fitEscaped(plain: string, budget: number): string {
-	if (budget <= 0) return "";
-	let candidate = plain;
-	let escaped = escapeTelegramHtml(candidate);
-	while (escaped.length > budget && candidate.length > 0) {
-		// Scale by the observed expansion ratio, then step down to guarantee
-		// progress even when the ratio rounds to the current length.
-		const ratio = budget / escaped.length;
-		const next = Math.min(
-			Math.floor(candidate.length * ratio),
-			candidate.length - 1,
-		);
-		candidate = candidate.slice(0, Math.max(next, 0));
-		escaped = escapeTelegramHtml(candidate);
-	}
-	return escaped;
-}
-
 const SNIPPET_LENGTH = 500;
 /** Headers are unbounded in the wire format, so cap them to keep the total in range. */
 const HEADER_FIELD_LENGTH = 120;
 
 /**
  * Render the new-email notification body.
- * `bodyText` should already be stripped to plain text.
+ *
+ * `bodyHtml` is the stored email body, HTML or plain text. It is translated
+ * into Telegram's tag whitelist rather than flattened, so links in the email
+ * stay tappable in the notification.
  */
 export function formatNewEmailMessage(email: {
 	sender: string;
 	recipient: string;
 	subject: string;
-	bodyText: string;
+	bodyHtml: string;
 	attachmentCount: number;
 }): string {
 	const lines = [
@@ -210,19 +186,17 @@ export function formatNewEmailMessage(email: {
 	}
 
 	const footer = "<i>Reply to this message to answer by email.</i>";
-	const snippet = email.bodyText.slice(0, SNIPPET_LENGTH);
-	const truncated = email.bodyText.length > SNIPPET_LENGTH;
+	// Telegram cannot nest blockquotes, and the snippet goes inside one.
+	const snippet = emailHtmlToTelegramHtml(email.bodyHtml, { allowBlockquote: false });
 
-	if (snippet.trim()) {
+	if (snippet) {
 		// Headers are capped, but escaping can still expand them fivefold, so
 		// fit the snippet against whatever budget genuinely remains. If nothing
 		// is left the block is dropped rather than cut mid-markup.
-		const chrome = `\n\n<blockquote>…</blockquote>\n\n${footer}`;
+		const chrome = `\n\n<blockquote></blockquote>\n\n${footer}`;
 		const budget = TELEGRAM_MAX_MESSAGE - lines.join("\n").length - chrome.length;
-		const fitted = fitEscaped(snippet, budget);
-		if (fitted) {
-			lines.push("", `<blockquote>${fitted}${truncated || fitted.length < snippet.length ? "…" : ""}</blockquote>`);
-		}
+		const { text } = fitTelegramHtml(snippet, { maxLength: budget, maxVisible: SNIPPET_LENGTH });
+		if (text) lines.push("", `<blockquote>${text}</blockquote>`);
 	}
 
 	lines.push("", footer);

@@ -27,7 +27,6 @@ import {
 	buildQuotedReplyBlock,
 	resolveOriginalEmail,
 	getEffectiveFromEmail,
-	stripHtmlToText,
 	textToHtml,
 } from "../lib/email-helpers";
 import type { EmailFull } from "../lib/schemas";
@@ -41,8 +40,9 @@ import {
 	formatNewEmailMessage,
 	buildEmailKeyboard,
 	escapeTelegramHtml,
+	emailHtmlToTelegramHtml,
+	fitTelegramHtml,
 	truncateText,
-	fitEscaped,
 	TELEGRAM_MESSAGE_LIMIT,
 	putMessageRef,
 	getMessageRef,
@@ -99,7 +99,7 @@ export async function notifyNewEmail(
 			sender: params.sender,
 			recipient: params.recipient,
 			subject: params.subject,
-			bodyText: stripHtmlToText(params.body),
+			bodyHtml: params.body,
 			attachmentCount: params.attachmentCount,
 		});
 
@@ -234,14 +234,15 @@ async function handleCallbackQuery(
 			await answerCallbackQuery(config, query.id, email ? "Sending full body" : "Email not found");
 			if (!email) return;
 
-			const plain = stripHtmlToText(email.body || "") || "(empty body)";
-			// Budget the plain text against the escaped heading, then escape.
-			// Truncating the assembled HTML could split a tag or an entity.
+			// Translated to Telegram's tag whitelist, not flattened, so links
+			// in the email stay tappable here.
+			const body = emailHtmlToTelegramHtml(email.body || "");
 			const heading = `<b>${escapeTelegramHtml(truncateText(email.subject || "(no subject)", 120))}</b>`;
 			const bodyBudget = TELEGRAM_MESSAGE_LIMIT - heading.length - 2;
+			const { text } = fitTelegramHtml(body, { maxLength: bodyBudget });
 			await sendMessage(config, {
 				chatId: message.chat.id,
-				text: `${heading}\n\n${fitEscaped(plain, bodyBudget)}`,
+				text: `${heading}\n\n${text || "(empty body)"}`,
 				replyToMessageId: message.message_id,
 			});
 			return;
