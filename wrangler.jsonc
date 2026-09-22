@@ -10,6 +10,8 @@
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
+	// Keep variables set in the dashboard across deploys (e.g. Telegram config).
+	"keep_vars": true,
 	"vars": {
 		// Production deploys must also define POLICY_AUD and TEAM_DOMAIN as secrets.
 		// TEAM_DOMAIN may be the base Access URL or the full /cdn-cgi/access/certs URL.

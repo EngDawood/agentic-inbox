@@ -851,7 +851,7 @@ export class MailboxDO extends DurableObject<Env> {
 				.get();
 			if (existing) {
 				console.log(`Skipping duplicate inbound email with message_id ${email.message_id}`);
-				return;
+				return false;
 			}
 		}
 
@@ -882,5 +882,6 @@ export class MailboxDO extends DurableObject<Env> {
 		if (attachments.length > 0) {
 			this.db.insert(schema.attachments).values(attachments).run();
 		}
+		return true;
 	}
 }
