@@ -436,7 +436,7 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 
 	const originalMessageId = parsedEmail.messageId ? extractMsgId(parsedEmail.messageId) : null;
 
-	await stub.createEmail(Folders.INBOX, {
+	const inserted = await stub.createEmail(Folders.INBOX, {
 		id: messageId, subject: parsedEmail.subject || "",
 		sender: (parsedEmail.from?.address || "").toLowerCase(), recipient: allRecipients.join(", "),
 		cc: ccRecipients.join(", ") || null, bcc: bccRecipients.join(", ") || null,
@@ -445,6 +445,10 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 		in_reply_to: inReplyTo, email_references: emailReferences.length > 0 ? JSON.stringify(emailReferences) : null,
 		thread_id: threadId, message_id: originalMessageId, raw_headers: JSON.stringify(parsedEmail.headers),
 	}, attachmentData);
+
+	// Duplicate delivery (same Message-ID already stored): don't run the agent
+	// or send a second Telegram notification for it.
+	if (!inserted) return;
 
 	const agentStub = env.EMAIL_AGENT.get(env.EMAIL_AGENT.idFromName(mailboxId!));
 	ctx.waitUntil(agentStub.fetch(new Request("https://agents/onNewEmail", {
