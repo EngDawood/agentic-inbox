@@ -45,6 +45,8 @@ import {
 	truncateText,
 	TELEGRAM_MESSAGE_LIMIT,
 	putMessageRef,
+	deleteMessage,
+	clearMessageKeyboard,
 	getMessageRef,
 	TelegramAction,
 	type TelegramConfig,
@@ -227,6 +229,14 @@ async function handleCallbackQuery(
 		case TelegramAction.ARCHIVE: {
 			const moved = await stub.moveEmail(ref.emailId, Folders.ARCHIVE);
 			await answerCallbackQuery(config, query.id, moved ? "Archived" : "Archive folder not found");
+			if (!moved) return;
+			// Clear the notification from the chat too. Telegram refuses
+			// deletes after 48h, so fall back to removing the buttons.
+			try {
+				await deleteMessage(config, message.chat.id, message.message_id);
+			} catch {
+				await clearMessageKeyboard(config, message.chat.id, message.message_id).catch(() => {});
+			}
 			return;
 		}
 		case TelegramAction.BODY: {

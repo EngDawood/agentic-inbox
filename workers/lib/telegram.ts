@@ -131,6 +131,31 @@ export async function answerCallbackQuery(
 	});
 }
 
+/**
+ * Telegram only lets bots delete messages younger than 48 hours, so callers
+ * should expect this to throw on older notifications.
+ */
+export async function deleteMessage(
+	config: TelegramConfig,
+	chatId: string | number,
+	messageId: number,
+): Promise<void> {
+	await callTelegram(config, "deleteMessage", { chat_id: chatId, message_id: messageId });
+}
+
+/** Strips the inline keyboard, used when a message is too old to delete. */
+export async function clearMessageKeyboard(
+	config: TelegramConfig,
+	chatId: string | number,
+	messageId: number,
+): Promise<void> {
+	await callTelegram(config, "editMessageReplyMarkup", {
+		chat_id: chatId,
+		message_id: messageId,
+		reply_markup: { inline_keyboard: [] },
+	});
+}
+
 // ── Formatting ─────────────────────────────────────────────────────
 
 /** Telegram rejects messages over 4096 characters. */
