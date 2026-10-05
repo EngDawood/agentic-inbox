@@ -156,6 +156,37 @@ export async function clearMessageKeyboard(
 	});
 }
 
+export async function editMessageText(
+	config: TelegramConfig,
+	params: {
+		chatId: string | number;
+		messageId: number;
+		text: string;
+		replyMarkup?: { inline_keyboard: InlineKeyboardButton[][] };
+	},
+): Promise<void> {
+	await callTelegram(config, "editMessageText", {
+		chat_id: params.chatId,
+		message_id: params.messageId,
+		text: params.text,
+		parse_mode: "HTML",
+		disable_web_page_preview: true,
+		reply_markup: params.replyMarkup ?? { inline_keyboard: [] },
+	});
+}
+
+/** Commands shown in Telegram's "/" menu. Registered on /start. */
+export const TELEGRAM_COMMANDS = [
+	{ command: "send", description: "Write a new email" },
+	{ command: "cancel", description: "Cancel the email you're writing" },
+	{ command: "help", description: "Show what the bot can do" },
+	{ command: "id", description: "Show this chat's ID" },
+];
+
+export async function setMyCommands(config: TelegramConfig): Promise<void> {
+	await callTelegram(config, "setMyCommands", { commands: TELEGRAM_COMMANDS });
+}
+
 // ── Formatting ─────────────────────────────────────────────────────
 
 /** Telegram rejects messages over 4096 characters. */
@@ -235,6 +266,14 @@ export const TelegramAction = {
 	STAR: "star",
 	ARCHIVE: "arch",
 	BODY: "body",
+	SUMMARY: "sum",
+	BACK: "back",
+	FORWARD: "fwd",
+	/** Draft actions act on the chat's draft, not on a notification. */
+	DRAFT_SEND: "dsend",
+	DRAFT_CANCEL: "dcancel",
+	/** Followed by an index into the draft's `fromOptions`. */
+	DRAFT_FROM: "dfrom:",
 } as const;
 
 export function buildEmailKeyboard(): { inline_keyboard: InlineKeyboardButton[][] } {
@@ -246,7 +285,37 @@ export function buildEmailKeyboard(): { inline_keyboard: InlineKeyboardButton[][
 			],
 			[
 				{ text: "📄 Full body", callback_data: TelegramAction.BODY },
+				{ text: "✨ AI summary", callback_data: TelegramAction.SUMMARY },
+			],
+			[
+				{ text: "↪️ Forward", callback_data: TelegramAction.FORWARD },
 				{ text: "📦 Archive", callback_data: TelegramAction.ARCHIVE },
+			],
+		],
+	};
+}
+
+export function buildSummaryKeyboard(): { inline_keyboard: InlineKeyboardButton[][] } {
+	return {
+		inline_keyboard: [
+			[
+				{ text: "⬅️ Back", callback_data: TelegramAction.BACK },
+				{ text: "📦 Archive", callback_data: TelegramAction.ARCHIVE },
+			],
+		],
+	};
+}
+
+export function buildDraftCancelKeyboard(): { inline_keyboard: InlineKeyboardButton[][] } {
+	return { inline_keyboard: [[{ text: "❌ Cancel", callback_data: TelegramAction.DRAFT_CANCEL }]] };
+}
+
+export function buildDraftPreviewKeyboard(): { inline_keyboard: InlineKeyboardButton[][] } {
+	return {
+		inline_keyboard: [
+			[
+				{ text: "✅ Send", callback_data: TelegramAction.DRAFT_SEND },
+				{ text: "❌ Cancel", callback_data: TelegramAction.DRAFT_CANCEL },
 			],
 		],
 	};
@@ -294,4 +363,60 @@ export async function getMessageRef(
 	} catch {
 		return null;
 	}
+}
+
+// ── Drafts (/send and Forward) ─────────────────────────────────────
+
+/**
+ * An email being written step by step in a chat. One per chat; starting a
+ * new one replaces the old. Kept in R2, which has no TTL, so staleness is
+ * checked against `updatedAt` on read.
+ */
+export interface TelegramDraft {
+	kind: "send" | "forward";
+	step: "from" | "to" | "subject" | "body" | "preview";
+	/** Mailbox the sent copy is stored in. */
+	mailboxId?: string;
+	from?: string;
+	to?: string;
+	subject?: string;
+	body?: string;
+	/** Forward only: the email being forwarded. */
+	emailId?: string;
+	/** Addresses offered as buttons on the "from" step. */
+	fromOptions?: string[];
+	updatedAt: number;
+}
+
+const DRAFT_TTL_MS = 60 * 60 * 1000;
+
+function draftKey(chatId: string | number): string {
+	return `telegram/drafts/${chatId}.json`;
+}
+
+export async function getDraft(bucket: R2Bucket, chatId: string | number): Promise<TelegramDraft | null> {
+	const obj = await bucket.get(draftKey(chatId));
+	if (!obj) return null;
+	try {
+		const draft = await obj.json<TelegramDraft>();
+		if (Date.now() - draft.updatedAt > DRAFT_TTL_MS) {
+			await bucket.delete(draftKey(chatId));
+			return null;
+		}
+		return draft;
+	} catch {
+		return null;
+	}
+}
+
+export async function saveDraft(
+	bucket: R2Bucket,
+	chatId: string | number,
+	draft: Omit<TelegramDraft, "updatedAt">,
+): Promise<void> {
+	await bucket.put(draftKey(chatId), JSON.stringify({ ...draft, updatedAt: Date.now() }));
+}
+
+export async function clearDraft(bucket: R2Bucket, chatId: string | number): Promise<void> {
+	await bucket.delete(draftKey(chatId));
 }
