@@ -114,8 +114,7 @@ export default function SettingsRoute() {
 							onChange={(e) => setAgentModel(e.target.value)}
 							className="w-full rounded-lg border border-kumo-line bg-kumo-recessed px-3 py-2 text-xs text-kumo-default focus:outline-none focus:ring-1 focus:ring-kumo-ring cursor-pointer leading-tight"
 						>
-							<option value="@cf/moonshotai/kimi-k2.5">Moonshot Kimi K2.5 (Default)</option>
-							<option value="@cf/meta/llama-3-8b-instruct">Meta Llama 3 8B</option>
+							<option value="@cf/meta/llama-3-8b-instruct">Meta Llama 3 8B(Default)</option>
 							<option value="@cf/qwen/qwen1.5-14b-chat">Qwen 1.5 14B</option>
 							<option value="@cf/google/gemma-7b-it">Google Gemma 7B</option>
 						</select>
