@@ -280,7 +280,7 @@ export class EmailAgent extends AIChatAgent<any> {
 		const tools = createEmailTools(env, mailboxId);
 		const systemPrompt = await getSystemPrompt(env, mailboxId);
 
-		let agentModel = "@cf/moonshotai/kimi-k2.5";
+		let agentModel = "@cf/qwen/qwen1.5-14b-chat";
 		try {
 			const key = `mailboxes/${mailboxId}.json`;
 			const obj = await env.BUCKET.get(key);
@@ -353,7 +353,7 @@ export class EmailAgent extends AIChatAgent<any> {
 
 		// Fetch mailbox settings
 		let autoDraft = true;
-		let agentModel = "@cf/moonshotai/kimi-k2.5";
+		let agentModel = "@cf/qwen/qwen1.5-14b-chat";
 		try {
 			const key = `mailboxes/${emailData.mailboxId}.json`;
 			const obj = await env.BUCKET.get(key);

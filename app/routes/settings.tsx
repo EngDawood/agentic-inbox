@@ -21,7 +21,7 @@ export default function SettingsRoute() {
 	const [displayName, setDisplayName] = useState("");
 	const [agentPrompt, setAgentPrompt] = useState("");
 	const [autoDraft, setAutoDraft] = useState(true);
-	const [agentModel, setAgentModel] = useState("@cf/moonshotai/kimi-k2.5");
+	const [agentModel, setAgentModel] = useState("@cf/qwen/qwen1.5-14b-chat");
 	const [isSaving, setIsSaving] = useState(false);
 
 	useEffect(() => {
@@ -29,7 +29,7 @@ export default function SettingsRoute() {
 			setDisplayName(mailbox.settings?.fromName || mailbox.name || "");
 			setAgentPrompt(mailbox.settings?.agentSystemPrompt || "");
 			setAutoDraft(mailbox.settings?.autoDraft !== false);
-			setAgentModel(mailbox.settings?.agentModel || "@cf/moonshotai/kimi-k2.5");
+			setAgentModel(mailbox.settings?.agentModel || "@cf/qwen/qwen1.5-14b-chat");
 		}
 	}, [mailbox]);
 
