@@ -64,6 +64,14 @@ import {
 	handleDraftInput,
 	handleDraftCallback,
 } from "./telegram-compose";
+import {
+	blockAndSweep,
+	handleBlocklistCallback,
+	handleSendersCommand,
+	handleBlockedCommand,
+	handleBlockCommand,
+	handleUnblockCommand,
+} from "./telegram-blocklist";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
 
@@ -227,6 +235,14 @@ async function handleCallbackQuery(
 		return;
 	}
 
+	// List buttons (/senders, /blocked) are keyed by a list snapshot, not an email.
+	if (
+		query.data &&
+		(await handleBlocklistCallback(env, config, query.id, query.data, message.chat.id, message.message_id))
+	) {
+		return;
+	}
+
 	const ref = await getMessageRef(env.BUCKET, message.chat.id, message.message_id);
 	if (!ref) {
 		await answerCallbackQuery(config, query.id, "This email is no longer tracked.");
@@ -252,6 +268,20 @@ async function handleCallbackQuery(
 			if (!moved) return;
 			// Clear the notification from the chat too. Telegram refuses
 			// deletes after 48h, so fall back to removing the buttons.
+			try {
+				await deleteMessage(config, message.chat.id, message.message_id);
+			} catch {
+				await clearMessageKeyboard(config, message.chat.id, message.message_id).catch(() => {});
+			}
+			return;
+		}
+		case TelegramAction.BLOCK: {
+			if (!ref.sender) {
+				await answerCallbackQuery(config, query.id, "No sender to block");
+				return;
+			}
+			const moved = await blockAndSweep(env, ref.sender);
+			await answerCallbackQuery(config, query.id, `Blocked ${ref.sender}. ${moved} moved to Spam.`);
 			try {
 				await deleteMessage(config, message.chat.id, message.message_id);
 			} catch {
@@ -377,7 +407,12 @@ async function handleIncomingMessage(
 				"• Tap the buttons on a notification to mark read, star, archive, forward, see the full body, or get an AI summary.",
 				"• <b>Reply</b> to a notification to answer it by email.",
 				"",
+				"• Tap <b>Block sender</b> to stop a sender for good. It applies to every address you receive on.",
+				"",
 				"<code>/send</code>: write a new email",
+				"<code>/senders</code>: top senders (last 30 days), tap to block. <code>/senders 7</code> for a custom window",
+				"<code>/blocked</code>: list blocked senders, tap to unblock",
+				"<code>/block address</code> and <code>/unblock address</code>",
 				"<code>/cancel</code>: cancel the email you're writing",
 				"<code>/id</code>: show this chat's ID",
 			].join("\n"),
@@ -394,6 +429,24 @@ async function handleIncomingMessage(
 
 	if (command === "send") {
 		await startSendDraft(env, config, chatId);
+		return;
+	}
+
+	const commandArg = text.replace(/^\/[a-z]+(?:@\S+)?\s*/i, "");
+	if (command === "senders") {
+		await handleSendersCommand(env, config, chatId, commandArg);
+		return;
+	}
+	if (command === "blocked") {
+		await handleBlockedCommand(env, config, chatId);
+		return;
+	}
+	if (command === "block") {
+		await handleBlockCommand(env, config, chatId, commandArg);
+		return;
+	}
+	if (command === "unblock") {
+		await handleUnblockCommand(env, config, chatId, commandArg);
 		return;
 	}
 

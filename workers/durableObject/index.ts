@@ -208,6 +208,39 @@ export class MailboxDO extends DurableObject<Env> {
 		return row?.total ?? 0;
 	}
 
+	/**
+	 * Busiest inbound senders since `sinceIso`, for deciding who to block.
+	 * `recipients` counts distinct To values, so a sender hitting several
+	 * of your aliases stands out from one that mails a single address.
+	 */
+	async getTopSenders(sinceIso: string, limit: number) {
+		return [
+			...this.ctx.storage.sql.exec(
+				`SELECT sender, COUNT(*) AS total, COUNT(DISTINCT recipient) AS recipients
+				 FROM emails
+				 WHERE folder_id = 'inbox' AND sender != '' AND date >= ?1
+				 GROUP BY sender
+				 ORDER BY total DESC
+				 LIMIT ?2`,
+				sinceIso,
+				limit,
+			),
+		] as { sender: string; total: number; recipients: number }[];
+	}
+
+	/** Move every inbox email from `sender` to spam. Returns how many moved. */
+	async moveSenderToSpam(sender: string) {
+		const rows = [
+			...this.ctx.storage.sql.exec(
+				`UPDATE emails SET folder_id = 'spam', read = 1
+				 WHERE folder_id = 'inbox' AND sender = ?1
+				 RETURNING id`,
+				sender,
+			),
+		];
+		return rows.length;
+	}
+
 	// ── Threaded queries (raw SQL — too complex for Drizzle's builder) ──
 
 	async getThreadedEmails(options: GetEmailsOptions = {}) {

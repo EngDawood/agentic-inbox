@@ -24,6 +24,7 @@ import {
 import { SendEmailRequestSchema } from "./lib/schemas";
 import { handleReplyEmail, handleForwardEmail } from "./routes/reply-forward";
 import { notifyNewEmail } from "./routes/telegram";
+import { isBlocked } from "./lib/blocklist";
 import { Folders } from "../shared/folders";
 import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
@@ -412,8 +413,12 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 
 	const stub = env.MAILBOX.get(env.MAILBOX.idFromName(mailboxId!));
 
+	// Blocked senders still land in Spam (recoverable), but skip attachments,
+	// the auto-draft agent and the Telegram ping.
+	const blocked = await isBlocked(env.BUCKET, parsedEmail.from?.address || "");
+
 	const attachmentData: StoredAttachment[] = [];
-	if (parsedEmail.attachments) {
+	if (parsedEmail.attachments && !blocked) {
 		for (const att of parsedEmail.attachments) {
 			const attId = crypto.randomUUID();
 			const filename = (att.filename || "untitled").replace(/[\/\\:*?"<>|\x00-\x1f]/g, "_");
@@ -436,7 +441,7 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 
 	const originalMessageId = parsedEmail.messageId ? extractMsgId(parsedEmail.messageId) : null;
 
-	const inserted = await stub.createEmail(Folders.INBOX, {
+	const inserted = await stub.createEmail(blocked ? Folders.SPAM : Folders.INBOX, {
 		id: messageId, subject: parsedEmail.subject || "",
 		sender: (parsedEmail.from?.address || "").toLowerCase(), recipient: allRecipients.join(", "),
 		cc: ccRecipients.join(", ") || null, bcc: bccRecipients.join(", ") || null,
@@ -444,11 +449,12 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 		body: parsedEmail.html || parsedEmail.text || "",
 		in_reply_to: inReplyTo, email_references: emailReferences.length > 0 ? JSON.stringify(emailReferences) : null,
 		thread_id: threadId, message_id: originalMessageId, raw_headers: JSON.stringify(parsedEmail.headers),
+		read: blocked,
 	}, attachmentData);
 
 	// Duplicate delivery (same Message-ID already stored): don't run the agent
 	// or send a second Telegram notification for it.
-	if (!inserted) return;
+	if (!inserted || blocked) return;
 
 	const agentStub = env.EMAIL_AGENT.get(env.EMAIL_AGENT.idFromName(mailboxId!));
 	ctx.waitUntil(agentStub.fetch(new Request("https://agents/onNewEmail", {
