@@ -162,7 +162,10 @@ function isHiddenElement(attrs: string): boolean {
 		s.includes("display:none") ||
 		s.includes("visibility:hidden") ||
 		s.includes("mso-hide:all") ||
-		/font-size:0(?![.\d])/.test(s) ||
+		// `font-size:0` alone is not a hiding signal: MJML and SendGrid templates
+		// put it on the wrapper around the whole message to close inline-block
+		// gaps, and children restore their own size. Preheaders are caught by
+		// the max-height, opacity or display rules instead.
 		/max-height:0(?![.\d])/.test(s) ||
 		/opacity:0(?![.\d])/.test(s)
 	);
