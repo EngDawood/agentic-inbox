@@ -179,6 +179,10 @@ export async function editMessageText(
 export const TELEGRAM_COMMANDS = [
 	{ command: "send", description: "Write a new email" },
 	{ command: "cancel", description: "Cancel the email you're writing" },
+	{ command: "senders", description: "Top senders, tap to block" },
+	{ command: "blocked", description: "Show and unblock blocked senders" },
+	{ command: "block", description: "Block a sender: /block address" },
+	{ command: "unblock", description: "Unblock a sender: /unblock address" },
 	{ command: "help", description: "Show what the bot can do" },
 	{ command: "id", description: "Show this chat's ID" },
 ];
@@ -269,6 +273,11 @@ export const TelegramAction = {
 	SUMMARY: "sum",
 	BACK: "back",
 	FORWARD: "fwd",
+	/** Block the sender of the notification this button sits on. */
+	BLOCK: "blk",
+	/** Followed by an index into a /senders or /blocked list snapshot. */
+	SENDER_BLOCK: "blks:",
+	SENDER_UNBLOCK: "unb:",
 	/** Draft actions act on the chat's draft, not on a notification. */
 	DRAFT_SEND: "dsend",
 	DRAFT_CANCEL: "dcancel",
@@ -291,6 +300,7 @@ export function buildEmailKeyboard(): { inline_keyboard: InlineKeyboardButton[][
 				{ text: "↪️ Forward", callback_data: TelegramAction.FORWARD },
 				{ text: "📦 Archive", callback_data: TelegramAction.ARCHIVE },
 			],
+			[{ text: "🚫 Block sender", callback_data: TelegramAction.BLOCK }],
 		],
 	};
 }
