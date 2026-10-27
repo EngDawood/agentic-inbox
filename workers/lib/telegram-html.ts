@@ -152,6 +152,10 @@ function getAttribute(attrs: string, name: string): string | null {
  * control the inbox preview, is the main target. It is real text in the
  * markup, so tag stripping happily emits it, which is where stray fragments
  * in a notification come from.
+ *
+ * `mso-hide:all` is deliberately not a signal: it hides an element in Outlook
+ * only. Templates wrap their real button in it, next to an Outlook-only VML
+ * fallback, so treating it as hidden drops the one link the mail exists to carry.
  */
 function isHiddenElement(attrs: string): boolean {
 	if (/(?:^|\s)hidden(?:\s|=|$)/i.test(attrs)) return true;
@@ -161,7 +165,6 @@ function isHiddenElement(attrs: string): boolean {
 	return (
 		s.includes("display:none") ||
 		s.includes("visibility:hidden") ||
-		s.includes("mso-hide:all") ||
 		/font-size:0(?![.\d])/.test(s) ||
 		/max-height:0(?![.\d])/.test(s) ||
 		/opacity:0(?![.\d])/.test(s)
