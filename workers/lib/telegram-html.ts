@@ -194,6 +194,12 @@ export interface TelegramHtmlOptions {
 	 * wraps the result in a blockquote, because Telegram cannot nest them.
 	 */
 	allowBlockquote?: boolean;
+	/**
+	 * Keep elements whose inline style hides them (preheader text and the like).
+	 * The notification snippet drops them, but the "Full body" view should lose
+	 * nothing to a heuristic that can misjudge a template.
+	 */
+	includeHidden?: boolean;
 }
 
 /** Guard against pathological inputs; email bodies this long are machine-generated. */
@@ -243,6 +249,7 @@ const IMPLIED_BOUNDARY = new Set([
 export function emailHtmlToTelegramHtml(input: string, options: TelegramHtmlOptions = {}): string {
 	if (!input) return "";
 	const allowBlockquote = options.allowBlockquote !== false;
+	const includeHidden = options.includeHidden === true;
 	const source = input.length > MAX_INPUT ? input.slice(0, MAX_INPUT) : input;
 
 	// A body with no real markup is plain text: escape it and keep its line
@@ -383,7 +390,7 @@ export function emailHtmlToTelegramHtml(input: string, options: TelegramHtmlOpti
 		const isVoid = selfClosing || VOID_TAGS.has(name);
 		if (!isVoid) closeImplied(name);
 
-		if (DROP_SUBTREE.has(name) || name.includes(":") || isHiddenElement(attrs)) {
+		if (DROP_SUBTREE.has(name) || name.includes(":") || (!includeHidden && isHiddenElement(attrs))) {
 			// Everything nested inside is dropped with it. Depth is tracked on the
 			// stack rather than by tag name, so a close tag for any enclosing
 			// element ends the drop.
