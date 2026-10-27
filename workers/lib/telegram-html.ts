@@ -156,6 +156,8 @@ function getAttribute(attrs: string, name: string): string | null {
  * `mso-hide:all` is deliberately not a signal: it hides an element in Outlook
  * only. Templates wrap their real button in it, next to an Outlook-only VML
  * fallback, so treating it as hidden drops the one link the mail exists to carry.
+ * `font-size:0` is not a signal either: MJML and similar builders set it on
+ * layout containers to remove inline-block gaps, with visible children inside.
  */
 function isHiddenElement(attrs: string): boolean {
 	if (/(?:^|\s)hidden(?:\s|=|$)/i.test(attrs)) return true;
@@ -165,7 +167,6 @@ function isHiddenElement(attrs: string): boolean {
 	return (
 		s.includes("display:none") ||
 		s.includes("visibility:hidden") ||
-		/font-size:0(?![.\d])/.test(s) ||
 		/max-height:0(?![.\d])/.test(s) ||
 		/opacity:0(?![.\d])/.test(s)
 	);
