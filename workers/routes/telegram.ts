@@ -296,7 +296,7 @@ async function handleCallbackQuery(
 
 			// Translated to Telegram's tag whitelist, not flattened, so links
 			// in the email stay tappable here.
-			const body = emailHtmlToTelegramHtml(email.body || "");
+			const body = emailHtmlToTelegramHtml(email.body || "", { includeHidden: true });
 			const heading = `<b>${escapeTelegramHtml(truncateText(email.subject || "(no subject)", 120))}</b>`;
 			const bodyBudget = TELEGRAM_MESSAGE_LIMIT - heading.length - 2;
 			const { text } = fitTelegramHtml(body, { maxLength: bodyBudget });
